@@ -27,6 +27,7 @@ fn main() {
         write!(stdout, "{}", termion::clear::All).unwrap();
 
         buffer.draw(&mut stdout);
+        stdout.flush().unwrap();
         for c in stdin.keys() {
             match c.unwrap() {
                 Key::Char('j') => {

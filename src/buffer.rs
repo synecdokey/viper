@@ -24,6 +24,7 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn draw(&self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
+        write!(*stdout, "{}", termion::cursor::Hide).unwrap();
         let termsize = termion::terminal_size().unwrap();
         let mut count = 1;
         for line in self.text.lines() {
@@ -36,7 +37,7 @@ impl<'a> Buffer<'a> {
 
         write!(
             *stdout,
-            "{}{}{} {} {}{}{}",
+            "{}{}{} {} {}{}{}{}",
             termion::cursor::Goto(1, termsize.1 - 1),
             color::Fg(color::Black),
             color::Bg(color::LightCyan),
@@ -47,10 +48,9 @@ impl<'a> Buffer<'a> {
             ],)
             .unwrap(),
             self.cursor.goto_cursor(),
-            termion::style::Reset
+            termion::style::Reset,
+            termion::cursor::Show
         )
         .unwrap();
-        // Flush stdout (i.e. make the output appear).
-        stdout.flush().unwrap();
     }
 }
