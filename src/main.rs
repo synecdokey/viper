@@ -7,7 +7,6 @@ use std::io::{stdin, stdout, Write};
 mod buffer;
 use crate::buffer::Buffer;
 
-use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -26,32 +25,7 @@ fn main() {
         let buffer = Buffer::new(&filename);
         write!(stdout, "{}", termion::clear::All).unwrap();
 
-        let termsize = termion::terminal_size().ok().unwrap();
-        let mut count = 1;
-        for line in buffer.text.lines() {
-            write!(stdout, "{}{}", termion::cursor::Goto(1, count), line).unwrap();
-            count += 1;
-            if count == termsize.1 - 2 {
-                break;
-            }
-        }
-
-        write!(
-            stdout,
-            "{}{}{}{}{}",
-            termion::cursor::Goto(1, termsize.1 - 1),
-            color::Fg(color::Black),
-            color::Bg(color::LightCyan),
-            filename,
-            String::from_utf8(vec![
-                ' ' as u8;
-                termsize.0 as usize - filename.chars().count()
-            ])
-            .unwrap(),
-        )
-        .unwrap();
-        // Flush stdout (i.e. make the output appear).
-        stdout.flush().unwrap();
+        buffer.draw(&mut stdout);
 
         for c in stdin.keys() {
             // Clear the current line.
@@ -73,8 +47,5 @@ fn main() {
             // Flush again.
             stdout.flush().unwrap();
         }
-
-        // Show the cursor again before we exit.
-        write!(stdout, "{}{}", termion::clear::All, termion::cursor::Show).unwrap();
     }
 }
