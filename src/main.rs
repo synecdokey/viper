@@ -5,6 +5,7 @@ use std::env::args;
 use std::io::{stdin, stdout, Write};
 
 mod buffer;
+mod cursor;
 use crate::buffer::Buffer;
 
 use termion::event::Key;
@@ -22,28 +23,21 @@ fn main() {
         let mut arguments = args();
 
         let filename = arguments.nth(1).unwrap();
-        let buffer = Buffer::new(&filename);
+        let mut buffer = Buffer::new(&filename);
         write!(stdout, "{}", termion::clear::All).unwrap();
 
         buffer.draw(&mut stdout);
-
         for c in stdin.keys() {
-            // Clear the current line.
-            write!(
-                stdout,
-                "{}{}",
-                termion::cursor::Goto(1, 1),
-                termion::clear::CurrentLine
-            )
-            .unwrap();
-
-            // Print the key we type...
             match c.unwrap() {
+                Key::Char('j') => {
+                    buffer.cursor.down(2);
+                }
                 // Exit.
                 Key::Char('q') => break,
-                _ => println!("Other"),
+                _ => {}
             }
 
+            buffer.draw(&mut stdout);
             // Flush again.
             stdout.flush().unwrap();
         }
