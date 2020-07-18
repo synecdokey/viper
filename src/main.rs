@@ -1,10 +1,12 @@
 extern crate ropey;
 extern crate termion;
 
-use ropey::Rope;
 use std::env::args;
-use std::fs::File;
-use std::io::{stdin, stdout, BufReader, Write};
+use std::io::{stdin, stdout, Write};
+
+mod buffer;
+use crate::buffer::Buffer;
+
 use termion::color;
 use termion::event::Key;
 use termion::input::TermRead;
@@ -15,16 +17,18 @@ fn main() {
     let stdin = stdin();
     // Get the standard output stream and go to raw mode.
     {
-        let mut stdout = termion::screen::AlternateScreen::from(stdout()).into_raw_mode().unwrap();
+        let mut stdout = termion::screen::AlternateScreen::from(stdout())
+            .into_raw_mode()
+            .unwrap();
         let mut arguments = args();
 
         let filename = arguments.nth(1).unwrap();
-        let text = Rope::from_reader(BufReader::new(File::open(&filename).unwrap()));
+        let buffer = Buffer::new(&filename);
         write!(stdout, "{}", termion::clear::All).unwrap();
 
         let termsize = termion::terminal_size().ok().unwrap();
         let mut count = 1;
-        for line in text.unwrap().lines() {
+        for line in buffer.text.lines() {
             write!(stdout, "{}{}", termion::cursor::Goto(1, count), line).unwrap();
             count += 1;
             if count == termsize.1 - 2 {
@@ -44,7 +48,8 @@ fn main() {
                 termsize.0 as usize - filename.chars().count()
             ])
             .unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         // Flush stdout (i.e. make the output appear).
         stdout.flush().unwrap();
 
