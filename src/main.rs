@@ -13,9 +13,7 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 fn main() {
-    // Get the standard input stream.
     let stdin = stdin();
-    // Get the standard output stream and go to raw mode.
     {
         let mut stdout = termion::screen::AlternateScreen::from(stdout())
             .into_raw_mode()
@@ -30,8 +28,17 @@ fn main() {
         stdout.flush().unwrap();
         for c in stdin.keys() {
             match c.unwrap() {
+                Key::Char('h') => {
+                    buffer.cursor.left();
+                }
                 Key::Char('j') => {
-                    buffer.cursor.down(2);
+                    buffer.cursor.down();
+                }
+                Key::Char('k') => {
+                    buffer.cursor.up();
+                }
+                Key::Char('l') => {
+                    buffer.right();
                 }
                 // Exit.
                 Key::Char('q') => break,

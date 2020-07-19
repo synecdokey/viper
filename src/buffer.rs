@@ -12,24 +12,33 @@ pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     pub cursor: Cursor,
+    limit: Cursor,
 }
 
 impl<'a> Buffer<'a> {
     pub fn new(filename: &'a str) -> Self {
+        let termsize = termion::terminal_size().unwrap();
         Buffer {
             text: Rope::from_reader(BufReader::new(File::open(filename).unwrap())).unwrap(),
             filename,
             cursor: Cursor::new(),
+            limit: Cursor::from(termsize.0, termsize.1 - 1),
         }
     }
 
-    pub fn draw(&self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
+    pub fn draw(&mut self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
         write!(*stdout, "{}", termion::cursor::Hide).unwrap();
         let termsize = termion::terminal_size().unwrap();
         let mut count = 1;
         for line in self.text.lines() {
             write!(*stdout, "{}{}", termion::cursor::Goto(1, count), line).unwrap();
             count += 1;
+            if self.cursor.1 == count - 1 {
+                self.limit.0 = line.len_chars() as u16;
+                if self.cursor.0 > self.limit.0 {
+                    self.cursor.0 = self.limit.0
+                }
+            }
             if count == termsize.1 - 1 {
                 break;
             }
@@ -52,5 +61,11 @@ impl<'a> Buffer<'a> {
             termion::cursor::Show
         )
         .unwrap();
+    }
+
+    pub fn right(&mut self) {
+        if self.cursor.0 < self.limit.0 {
+            self.cursor.right()
+        }
     }
 }
