@@ -32,7 +32,7 @@ fn main() {
                     buffer.cursor.left();
                 }
                 Key::Char('j') => {
-                    buffer.cursor.down();
+                    buffer.down();
                 }
                 Key::Char('k') => {
                     buffer.cursor.up();
