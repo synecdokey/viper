@@ -7,12 +7,14 @@ use termion::raw::RawTerminal;
 use termion::screen::AlternateScreen;
 
 use crate::cursor::Cursor;
+use crate::mode::Mode;
 
 pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     start_line: u16,
     pub cursor: Cursor,
+    mode: Mode,
     limit: Cursor,
 }
 
@@ -24,6 +26,7 @@ impl<'a> Buffer<'a> {
             filename,
             start_line: 0,
             cursor: Cursor::new(),
+            mode: Mode::Normal,
             limit: Cursor::from(termsize.0, termsize.1 - 2),
         }
     }
@@ -47,26 +50,37 @@ impl<'a> Buffer<'a> {
             }
             count += 1;
         }
+        let percent = format!(
+            "{:.0}",
+            (self.line_position() as f32 / self.text.len_lines() as f32) * 100.0
+        );
 
+        let length = self.mode.len()
+            + self.filename.chars().count()
+            + 7
+            + self.line_position().to_string().len()
+            + self.cursor.0.to_string().len()
+            + percent.len();
         write!(
             *stdout,
-            "{}{}{} {} {}/{}{}{}{}{}",
+            "{}{}{} {} {} {}% {}:{} {}{}{}",
             termion::cursor::Goto(1, termsize.1 - 1),
-            color::Fg(color::Black),
-            color::Bg(color::LightCyan),
+            self.mode,
+            color::Bg(color::LightBlack),
             self.filename,
-            self.start_line + self.cursor.1,
-            self.text.len_lines(),
-            String::from_utf8(vec![
-                ' ' as u8;
-                termsize.0 as usize - self.filename.chars().count() - 4
-            ],)
-            .unwrap(),
+            String::from_utf8(vec![' ' as u8; termsize.0 as usize - length],).unwrap(),
+            percent,
+            self.line_position(),
+            self.cursor.0,
             self.cursor.goto_cursor(),
             termion::style::Reset,
             termion::cursor::Show
         )
         .unwrap();
+    }
+
+    fn line_position(&self) -> u16 {
+        self.cursor.1 + self.start_line
     }
 
     pub fn right(&mut self) {

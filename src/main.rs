@@ -6,6 +6,7 @@ use std::io::{stdin, stdout, Write};
 
 mod buffer;
 mod cursor;
+mod mode;
 use crate::buffer::Buffer;
 
 use termion::event::Key;
