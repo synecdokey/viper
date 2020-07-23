@@ -36,7 +36,7 @@ fn main() {
                     buffer.down();
                 }
                 Key::Char('k') => {
-                    buffer.cursor.up();
+                    buffer.up();
                 }
                 Key::Char('l') => {
                     buffer.right();

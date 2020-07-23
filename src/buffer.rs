@@ -89,13 +89,18 @@ impl<'a> Buffer<'a> {
         }
     }
 
+    pub fn up(&mut self) {
+        if self.cursor.1 > 1 {
+            self.cursor.up()
+        } else if self.line_position() > 1 {
+            self.start_line -= 1;
+        }
+    }
+
     pub fn down(&mut self) {
         if self.cursor.1 < self.limit.1 {
             self.cursor.down();
-        }
-        if self.cursor.1 == self.limit.1
-            && (self.cursor.1 as usize + self.start_line as usize) < self.text.len_lines()
-        {
+        } else if (self.line_position() as usize) < self.text.len_lines() {
             self.start_line += 1;
         }
     }
