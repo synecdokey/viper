@@ -13,6 +13,7 @@ pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     start_line: u16,
+    start_char: u16,
     pub cursor: Cursor,
     mode: Mode,
     limit: Cursor,
@@ -21,10 +22,12 @@ pub struct Buffer<'a> {
 impl<'a> Buffer<'a> {
     pub fn new(filename: &'a str) -> Self {
         let termsize = termion::terminal_size().unwrap();
+        let text = Rope::from_reader(BufReader::new(File::open(filename).unwrap())).unwrap();
         Buffer {
-            text: Rope::from_reader(BufReader::new(File::open(filename).unwrap())).unwrap(),
+            text,
             filename,
             start_line: 0,
+            start_char: 0,
             cursor: Cursor::new(),
             mode: Mode::Normal,
             limit: Cursor::from(termsize.0, termsize.1 - 2),
@@ -36,8 +39,23 @@ impl<'a> Buffer<'a> {
         let termsize = termion::terminal_size().unwrap();
         let mut count = 1;
 
+        let line_number_len = self.text.len_lines().to_string().len() + 1;
+
         for line in self.text.lines_at(self.start_line as usize) {
-            write!(*stdout, "{}{}", termion::cursor::Goto(1, count), line).unwrap();
+            let line_number_diff = line_number_len - (self.start_line + count).to_string().len();
+            let line_number_str = match line_number_diff {
+                0 => vec![],
+                _ => vec![' ' as u8; line_number_diff],
+            };
+            write!(
+                *stdout,
+                "{}{}{} {}",
+                termion::cursor::Goto(1, count),
+                String::from_utf8(line_number_str).unwrap(),
+                self.start_line + count,
+                line
+            )
+            .unwrap();
             if self.cursor.1 == count {
                 self.limit.0 = line.len_chars() as u16;
                 if self.cursor.0 > self.limit.0 {
@@ -50,6 +68,7 @@ impl<'a> Buffer<'a> {
             }
             count += 1;
         }
+
         let percent = format!(
             "{:.0}",
             (self.line_position() as f32 / self.text.len_lines() as f32) * 100.0
@@ -68,7 +87,7 @@ impl<'a> Buffer<'a> {
             self.mode,
             color::Bg(color::LightBlack),
             self.filename,
-            String::from_utf8(vec![' ' as u8; termsize.0 as usize - length],).unwrap(),
+            String::from_utf8(vec![' ' as u8; termsize.0 as usize - length]).unwrap(),
             percent,
             self.line_position(),
             self.cursor.0,
