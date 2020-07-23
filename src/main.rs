@@ -30,7 +30,7 @@ fn main() {
         for c in stdin.keys() {
             match c.unwrap() {
                 Key::Char('h') => {
-                    buffer.cursor.left();
+                    buffer.left();
                 }
                 Key::Char('j') => {
                     buffer.down();

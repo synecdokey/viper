@@ -14,9 +14,7 @@ impl Cursor {
     }
 
     pub fn left(&mut self) {
-        if self.0 > 1 {
-            self.0 -= 1;
-        }
+        self.0 -= 1;
     }
 
     pub fn down(&mut self) {
