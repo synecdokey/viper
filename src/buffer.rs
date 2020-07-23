@@ -98,7 +98,7 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn down(&mut self) {
-        if self.cursor.1 < self.limit.1 {
+        if self.cursor.1 < self.limit.1 && (self.line_position() as usize) < self.text.len_lines() {
             self.cursor.down();
         } else if (self.line_position() as usize) < self.text.len_lines() {
             self.start_line += 1;
