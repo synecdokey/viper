@@ -67,6 +67,9 @@ impl<'a> Buffer<'a> {
                 if self.cursor.x > (self.upper_limit.x + self.start_char as u16 - 1) {
                     self.cursor.x = self.upper_limit.x + self.start_char as u16 - 1
                 }
+                if self.cursor.x < self.lower_limit.x {
+                    self.cursor.x = self.lower_limit.x
+                }
             }
 
             if count == termsize.1 - 1 || count as usize > self.text.len_lines() {
