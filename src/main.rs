@@ -5,7 +5,7 @@ use std::env::args;
 use std::io::{stdin, stdout, Write};
 
 mod buffer;
-mod cursor;
+mod coordinates;
 mod mode;
 use crate::buffer::Buffer;
 

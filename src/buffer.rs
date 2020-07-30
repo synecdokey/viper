@@ -6,7 +6,7 @@ use termion::color;
 use termion::raw::RawTerminal;
 use termion::screen::AlternateScreen;
 
-use crate::cursor::Cursor;
+use crate::coordinates::Coordinates;
 use crate::mode::Mode;
 
 pub struct Buffer<'a> {
@@ -14,10 +14,13 @@ pub struct Buffer<'a> {
     text: Rope,
     start_line: u16,
     start_char: usize,
-    pub cursor: Cursor,
+    pub cursor: Coordinates,
     mode: Mode,
-    limit: Cursor,
+    lower_limit: Coordinates,
+    upper_limit: Coordinates,
 }
+
+
 
 impl<'a> Buffer<'a> {
     pub fn new(filename: &'a str) -> Self {
@@ -29,9 +32,10 @@ impl<'a> Buffer<'a> {
             text,
             filename,
             start_line: 0,
-            cursor: Cursor::from(len as u16, 1),
+            cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
-            limit: Cursor::from(termsize.0, termsize.1 - 2),
+            lower_limit: Coordinates::from(len as u16, 1),
+            upper_limit: Coordinates::from(termsize.0, termsize.1 - 2),
         }
     }
 
@@ -47,6 +51,7 @@ impl<'a> Buffer<'a> {
                 0 => vec![],
                 _ => vec![' ' as u8; line_number_diff],
             };
+
             write!(
                 *stdout,
                 "{}{}{} {}",
@@ -56,10 +61,11 @@ impl<'a> Buffer<'a> {
                 line
             )
             .unwrap();
-            if self.cursor.1 == count {
-                self.limit.0 = line.len_chars() as u16;
-                if self.cursor.0 > (self.limit.0 + self.start_char as u16 - 2) {
-                    self.cursor.0 = self.limit.0 + self.start_char as u16 - 2
+
+            if self.cursor.y == count {
+                self.upper_limit.x = line.len_chars() as u16;
+                if self.cursor.x > (self.upper_limit.x + self.start_char as u16 - 1) {
+                    self.cursor.x = self.upper_limit.x + self.start_char as u16 - 1
                 }
             }
 
@@ -78,8 +84,9 @@ impl<'a> Buffer<'a> {
             + self.filename.chars().count()
             + 7
             + self.line_position().to_string().len()
-            + self.cursor.0.to_string().len()
+            + self.cursor.x.to_string().len()
             + percent.len();
+
         write!(
             *stdout,
             "{}{}{} {} {} {}% {}:{} {}{}{}",
@@ -90,7 +97,7 @@ impl<'a> Buffer<'a> {
             String::from_utf8(vec![' ' as u8; termsize.0 as usize - length]).unwrap(),
             percent,
             self.line_position(),
-            self.cursor.0,
+            self.cursor.x,
             self.cursor.goto_cursor(),
             termion::style::Reset,
             termion::cursor::Show
@@ -99,31 +106,33 @@ impl<'a> Buffer<'a> {
     }
 
     fn line_position(&self) -> u16 {
-        self.cursor.1 + self.start_line
+        self.cursor.y + self.start_line
     }
 
     pub fn left(&mut self) {
-        if self.cursor.0 as usize > self.start_char {
+        if self.cursor.x as usize > self.start_char {
             self.cursor.left()
         }
     }
 
     pub fn right(&mut self) {
-        if self.cursor.0 < self.limit.0 + self.start_char as u16 - 2 {
+        if self.cursor.x < self.upper_limit.x + self.start_char as u16 - 2 {
             self.cursor.right()
         }
     }
 
     pub fn up(&mut self) {
-        if self.cursor.1 > 1 {
+        if self.cursor.y > self.lower_limit.y {
             self.cursor.up()
-        } else if self.line_position() > 1 {
+        } else if self.line_position() > self.lower_limit.y {
             self.start_line -= 1;
         }
     }
 
     pub fn down(&mut self) {
-        if self.cursor.1 < self.limit.1 && (self.line_position() as usize) < self.text.len_lines() {
+        if self.cursor.y < self.upper_limit.y
+            && (self.line_position() as usize) < self.text.len_lines()
+        {
             self.cursor.down();
         } else if (self.line_position() as usize) < self.text.len_lines() {
             self.start_line += 1;
