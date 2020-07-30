@@ -26,7 +26,9 @@ fn main() {
         write!(stdout, "{}", termion::clear::All).unwrap();
 
         buffer.draw(&mut stdout);
+        buffer.draw_modeline(&mut stdout);
         stdout.flush().unwrap();
+
         for c in stdin.keys() {
             match c.unwrap() {
                 Key::Char('h') => {
@@ -47,6 +49,7 @@ fn main() {
             }
 
             buffer.draw(&mut stdout);
+            buffer.draw_modeline(&mut stdout);
             // Flush again.
             stdout.flush().unwrap();
         }

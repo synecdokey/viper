@@ -20,13 +20,13 @@ pub struct Buffer<'a> {
     upper_limit: Coordinates,
 }
 
-
+static MIN_CURSOR: u16 = 1;
 
 impl<'a> Buffer<'a> {
     pub fn new(filename: &'a str) -> Self {
         let termsize = termion::terminal_size().unwrap();
         let text = Rope::from_reader(BufReader::new(File::open(filename).unwrap())).unwrap();
-        let len = &text.len_lines().to_string().len() + 2;
+        let len = &text.len_lines().to_string().len() + 1 + MIN_CURSOR as usize;
         Buffer {
             start_char: len,
             text,
@@ -35,13 +35,15 @@ impl<'a> Buffer<'a> {
             cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
             lower_limit: Coordinates::from(len as u16, 1),
-            upper_limit: Coordinates::from(termsize.0, termsize.1 - 2),
+            upper_limit: Coordinates::from(termsize.0, termsize.1 -2),
         }
     }
 
+
     pub fn draw(&mut self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
+        // First, clear everything
         write!(*stdout, "{}{}", termion::cursor::Hide, termion::clear::All).unwrap();
-        let termsize = termion::terminal_size().unwrap();
+
         let mut count = 1;
 
         for line in self.text.lines_at(self.start_line as usize) {
@@ -62,6 +64,7 @@ impl<'a> Buffer<'a> {
             )
             .unwrap();
 
+            // Normalise cursor position
             if self.cursor.y == count {
                 self.upper_limit.x = line.len_chars() as u16;
                 if self.cursor.x > (self.upper_limit.x + self.start_char as u16 - 1) {
@@ -72,12 +75,15 @@ impl<'a> Buffer<'a> {
                 }
             }
 
-            if count == termsize.1 - 1 || count as usize > self.text.len_lines() {
+            if count == self.upper_limit.y || count as usize > self.text.len_lines() {
                 break;
             }
+
             count += 1;
         }
+    }
 
+    pub fn draw_modeline(&self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
         let percent = format!(
             "{:.0}",
             (self.line_position() as f32 / self.text.len_lines() as f32) * 100.0
@@ -93,11 +99,11 @@ impl<'a> Buffer<'a> {
         write!(
             *stdout,
             "{}{}{} {} {} {}% {}:{} {}{}{}",
-            termion::cursor::Goto(1, termsize.1 - 1),
+            termion::cursor::Goto(1, self.upper_limit.y +1),
             self.mode,
             color::Bg(color::LightBlack),
             self.filename,
-            String::from_utf8(vec![' ' as u8; termsize.0 as usize - length]).unwrap(),
+            String::from_utf8(vec![' ' as u8; termion::terminal_size().unwrap().0 as usize - length]).unwrap(),
             percent,
             self.line_position(),
             self.cursor.x,
