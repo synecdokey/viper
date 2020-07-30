@@ -14,6 +14,7 @@ pub struct Buffer<'a> {
     text: Rope,
     start_line: u16,
     start_char: usize,
+    x_memory: u16,
     pub cursor: Coordinates,
     mode: Mode,
     lower_limit: Coordinates,
@@ -32,6 +33,7 @@ impl<'a> Buffer<'a> {
             text,
             filename,
             start_line: 0,
+            x_memory: len as u16,
             cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
             lower_limit: Coordinates::from(len as u16, 1),
@@ -66,12 +68,19 @@ impl<'a> Buffer<'a> {
 
             // Normalise cursor position
             if self.cursor.y == count {
+                // TODO: don't mess with the upper_limit
                 self.upper_limit.x = line.len_chars() as u16;
+
+                // normalise end of line
                 if self.cursor.x > (self.upper_limit.x + self.start_char as u16 - 1) {
                     self.cursor.x = self.upper_limit.x + self.start_char as u16 - 1
                 }
+
+                // normalise start of line
                 if self.cursor.x < self.lower_limit.x {
                     self.cursor.x = self.lower_limit.x
+                } else if self.x_memory < self.upper_limit.x {
+                    self.cursor.x = self.x_memory
                 }
             }
 
@@ -99,7 +108,7 @@ impl<'a> Buffer<'a> {
         write!(
             *stdout,
             "{}{}{} {} {} {}% {}:{} {}{}{}",
-            termion::cursor::Goto(1, self.upper_limit.y +1),
+            termion::cursor::Goto(1, self.upper_limit.y + 1),
             self.mode,
             color::Bg(color::LightBlack),
             self.filename,
@@ -120,13 +129,15 @@ impl<'a> Buffer<'a> {
 
     pub fn left(&mut self) {
         if self.cursor.x as usize > self.start_char {
-            self.cursor.left()
+            self.cursor.left();
+            self.x_memory = self.cursor.x;
         }
     }
 
     pub fn right(&mut self) {
         if self.cursor.x < self.upper_limit.x + self.start_char as u16 - 2 {
-            self.cursor.right()
+            self.cursor.right();
+            self.x_memory = self.cursor.x;
         }
     }
 
