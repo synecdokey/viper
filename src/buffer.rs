@@ -13,7 +13,7 @@ pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     start_line: u16,
-    start_char: usize,
+    start_char: u16,
     x_memory: u16,
     pub cursor: Coordinates,
     mode: Mode,
@@ -29,10 +29,10 @@ impl<'a> Buffer<'a> {
         let text = Rope::from_reader(BufReader::new(File::open(filename).unwrap())).unwrap();
         let len = &text.len_lines().to_string().len() + 1 + MIN_CURSOR as usize;
         Buffer {
-            start_char: len,
             text,
             filename,
             start_line: 0,
+            start_char: len as u16,
             x_memory: len as u16,
             cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
@@ -50,7 +50,7 @@ impl<'a> Buffer<'a> {
 
         for line in self.text.lines_at(self.start_line as usize) {
             let line_number_diff =
-                self.start_char - (self.start_line + count).to_string().len() - 2;
+                self.start_char as usize - (self.start_line + count).to_string().len() - 2;
             let line_number_str = match line_number_diff {
                 0 => vec![],
                 _ => vec![' ' as u8; line_number_diff],
@@ -72,8 +72,8 @@ impl<'a> Buffer<'a> {
                 self.upper_limit.x = line.len_chars() as u16;
 
                 // normalise end of line
-                if self.cursor.x > (self.upper_limit.x + self.start_char as u16 - 1) {
-                    self.cursor.x = self.upper_limit.x + self.start_char as u16 - 1
+                if self.cursor.x > (self.upper_limit.x + self.start_char - 1) {
+                    self.cursor.x = self.upper_limit.x + self.start_char - 1
                 }
 
                 // normalise start of line
@@ -121,6 +121,7 @@ impl<'a> Buffer<'a> {
             termion::cursor::Show
         )
         .unwrap();
+
     }
 
     fn line_position(&self) -> u16 {
@@ -128,14 +129,14 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn left(&mut self) {
-        if self.cursor.x as usize > self.start_char {
+        if self.cursor.x > self.start_char {
             self.cursor.left();
             self.x_memory = self.cursor.x;
         }
     }
 
     pub fn right(&mut self) {
-        if self.cursor.x < self.upper_limit.x + self.start_char as u16 - 2 {
+        if self.cursor.x < self.upper_limit.x + self.start_char - 2 {
             self.cursor.right();
             self.x_memory = self.cursor.x;
         }
