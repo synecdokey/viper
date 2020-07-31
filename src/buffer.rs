@@ -13,10 +13,10 @@ pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     start_line: u16,
-    start_char: u16,
     x_memory: u16,
     pub cursor: Coordinates,
     mode: Mode,
+    line_len: u16,
     lower_limit: Coordinates,
     upper_limit: Coordinates,
 }
@@ -32,15 +32,14 @@ impl<'a> Buffer<'a> {
             text,
             filename,
             start_line: 0,
-            start_char: len as u16,
+            line_len: 0,
             x_memory: len as u16,
             cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
             lower_limit: Coordinates::from(len as u16, 1),
-            upper_limit: Coordinates::from(termsize.0, termsize.1 -2),
+            upper_limit: Coordinates::from(termsize.0, termsize.1 - 2),
         }
     }
-
 
     pub fn draw(&mut self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
         // First, clear everything
@@ -49,8 +48,10 @@ impl<'a> Buffer<'a> {
         let mut count = 1;
 
         for line in self.text.lines_at(self.start_line as usize) {
-            let line_number_diff =
-                self.start_char as usize - (self.start_line + count).to_string().len() - 2;
+            let line_number_diff = self.lower_limit.x as usize
+                - (self.start_line + count).to_string().len()
+                - 1
+                - MIN_CURSOR as usize;
             let line_number_str = match line_number_diff {
                 0 => vec![],
                 _ => vec![' ' as u8; line_number_diff],
@@ -68,19 +69,13 @@ impl<'a> Buffer<'a> {
 
             // Normalise cursor position
             if self.cursor.y == count {
-                // TODO: don't mess with the upper_limit
-                self.upper_limit.x = line.len_chars() as u16;
+                self.line_len = line.len_chars() as u16 + self.lower_limit.x - 1;
 
-                // normalise end of line
-                if self.cursor.x > (self.upper_limit.x + self.start_char - 1) {
-                    self.cursor.x = self.upper_limit.x + self.start_char - 1
-                }
-
-                // normalise start of line
-                if self.cursor.x < self.lower_limit.x {
-                    self.cursor.x = self.lower_limit.x
-                } else if self.x_memory < self.upper_limit.x {
+                // cursor memory
+                if self.x_memory < self.line_len {
                     self.cursor.x = self.x_memory
+                } else {
+                    self.cursor.x = self.line_len
                 }
             }
 
@@ -111,8 +106,12 @@ impl<'a> Buffer<'a> {
             termion::cursor::Goto(1, self.upper_limit.y + 1),
             self.mode,
             color::Bg(color::LightBlack),
-            self.filename,
-            String::from_utf8(vec![' ' as u8; termion::terminal_size().unwrap().0 as usize - length]).unwrap(),
+            self.line_len,
+            String::from_utf8(vec![
+                ' ' as u8;
+                termion::terminal_size().unwrap().0 as usize - length
+            ])
+            .unwrap(),
             percent,
             self.line_position(),
             self.cursor.x,
@@ -121,7 +120,6 @@ impl<'a> Buffer<'a> {
             termion::cursor::Show
         )
         .unwrap();
-
     }
 
     fn line_position(&self) -> u16 {
@@ -129,14 +127,14 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn left(&mut self) {
-        if self.cursor.x > self.start_char {
+        if self.cursor.x > self.lower_limit.x {
             self.cursor.left();
             self.x_memory = self.cursor.x;
         }
     }
 
     pub fn right(&mut self) {
-        if self.cursor.x < self.upper_limit.x + self.start_char - 2 {
+        if self.cursor.x < self.line_len {
             self.cursor.right();
             self.x_memory = self.cursor.x;
         }
