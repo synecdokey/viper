@@ -13,6 +13,7 @@ pub struct Buffer<'a> {
     filename: &'a str,
     text: Rope,
     start_line: u16,
+    multiline_count: u16,
     x_memory: u16,
     pub cursor: Coordinates,
     mode: Mode,
@@ -34,6 +35,7 @@ impl<'a> Buffer<'a> {
             start_line: 0,
             line_len: 0,
             x_memory: len as u16,
+            multiline_count: 0,
             cursor: Coordinates::from(len as u16, 1),
             mode: Mode::Normal,
             lower_limit: Coordinates::from(len as u16, 1),
@@ -44,34 +46,53 @@ impl<'a> Buffer<'a> {
     pub fn draw(&mut self, stdout: &mut RawTerminal<AlternateScreen<Stdout>>) {
         // First, clear everything
         write!(*stdout, "{}{}", termion::cursor::Hide, termion::clear::All).unwrap();
+        self.resize(termion::terminal_size().unwrap());
 
+        let max_line_size = (self.upper_limit.x - self.lower_limit.x) as usize;
         let mut count = 1;
+        self.multiline_count = 0;
 
         for line in self.text.lines_at(self.start_line as usize) {
             let line_number_diff = self.lower_limit.x as usize
                 - (self.start_line + count).to_string().len()
                 - 1
                 - MIN_CURSOR as usize;
-            let line_number_str = match line_number_diff {
-                0 => vec![],
-                _ => vec![' ' as u8; line_number_diff],
-            };
+            let line_number_str = String::from_utf8(vec![' ' as u8; line_number_diff]).unwrap();
 
-            write!(
-                *stdout,
-                "{}{}{} {}",
-                termion::cursor::Goto(1, count),
-                String::from_utf8(line_number_str).unwrap(),
-                self.start_line + count,
-                line
-            )
-            .unwrap();
+            let mut start = 0;
+            while line.len_chars() - start >= max_line_size {
+                write!(
+                    *stdout,
+                    "{}{}{} {}",
+                    termion::cursor::Goto(1, count + self.multiline_count),
+                    &line_number_str,
+                    self.start_line + count,
+                    line.slice(start..=max_line_size)
+                )
+                .unwrap();
+                start += max_line_size as usize + 1;
+                self.multiline_count += 1;
+            }
+            if start > 0 && line.chars_at(start).next().unwrap_or('\n') == '\n' {
+                self.multiline_count -= 1;
+            } else {
+                write!(
+                    *stdout,
+                    "{}{}{} {}",
+                    termion::cursor::Goto(1, count + self.multiline_count),
+                    &line_number_str,
+                    self.start_line + count,
+                    line.slice(start..)
+                )
+                .unwrap();
+            }
 
             // Normalise cursor position
             if self.cursor.y == count {
+                // TODO: understand why I need to substract
+                // Is it counting the \n?
                 self.line_len = line.len_chars() as u16 + self.lower_limit.x - 1;
 
-                // cursor memory
                 if self.x_memory < self.line_len {
                     self.cursor.x = self.x_memory
                 } else {
@@ -79,7 +100,9 @@ impl<'a> Buffer<'a> {
                 }
             }
 
-            if count == self.upper_limit.y || count as usize > self.text.len_lines() {
+            if count + self.multiline_count == self.upper_limit.y
+                || count as usize > self.text.len_lines()
+            {
                 break;
             }
 
@@ -106,7 +129,7 @@ impl<'a> Buffer<'a> {
             termion::cursor::Goto(1, self.upper_limit.y + 1),
             self.mode,
             color::Bg(color::LightBlack),
-            self.line_len,
+            self.filename,
             String::from_utf8(vec![
                 ' ' as u8;
                 termion::terminal_size().unwrap().0 as usize - length
@@ -124,6 +147,10 @@ impl<'a> Buffer<'a> {
 
     fn line_position(&self) -> u16 {
         self.cursor.y + self.start_line
+    }
+
+    pub fn resize(&mut self, termsize: (u16, u16)) {
+        self.upper_limit = Coordinates::from(termsize.0, termsize.1 - 2)
     }
 
     pub fn left(&mut self) {
